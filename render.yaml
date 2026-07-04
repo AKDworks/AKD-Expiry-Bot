@@ -1,0 +1,18 @@
+services:
+  - type: worker
+    name: akd-expiry-bot
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m bot.main
+    envVars:
+      - key: BOT_TOKEN
+        sync: false
+      - key: DATABASE_PATH
+        value: akdexpiry_bot.db
+      - key: REMINDER_HOUR
+        value: 9
+      - key: REMINDER_MINUTE
+        value: 0
+      - key: PROJECT_GITHUB_URL
+        value: https://github.com/AKDworks
