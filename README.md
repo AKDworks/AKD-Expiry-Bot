@@ -4,6 +4,8 @@ AKD Expiry Bot — Telegram-бот AKDworks для отслеживания ср
 
 Telegram username: `@akdexpiry_bot`
 
+Проект задеплоен на Oracle Cloud.
+
 ## О Проекте
 
 Бот помогает хранить список важных сроков и заранее получать напоминания.
@@ -76,6 +78,8 @@ akd-expiry-bot/
 │   ├── main.py
 │   ├── reminders.py
 │   └── texts.py
+├── deploy/
+│   └── akd-expiry-bot.service.example
 ├── .env.example
 ├── .gitignore
 ├── LICENSE

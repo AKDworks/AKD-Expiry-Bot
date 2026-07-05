@@ -1,0 +1,17 @@
+[Unit]
+Description=AKD Expiry Bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/opt/akd-expiry-bot
+EnvironmentFile=/opt/akd-expiry-bot/.env
+ExecStart=/opt/akd-expiry-bot/.venv/bin/python -m bot.main
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
