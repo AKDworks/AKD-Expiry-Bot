@@ -7,7 +7,15 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, Message
 
-from bot.database import add_item, delete_item, get_item, list_items, update_item
+from bot.database import (
+    add_item,
+    delete_item,
+    get_item,
+    get_user_reminder_hour,
+    list_items,
+    set_user_reminder_hour,
+    update_item,
+)
 from bot.keyboards import (
     ADD_ITEM_TEXT,
     ABOUT_BOT_TEXT,
@@ -16,6 +24,8 @@ from bot.keyboards import (
     DONE_TEXT,
     MY_ITEMS_TEXT,
     REMINDER_OPTIONS,
+    REMINDER_TIME_OPTIONS,
+    SETTINGS_TEXT,
     SKIP_TEXT,
     cancel_keyboard,
     category_keyboard,
@@ -24,6 +34,7 @@ from bot.keyboards import (
     item_actions_keyboard,
     items_keyboard,
     main_menu_keyboard,
+    reminder_time_keyboard,
     reminders_keyboard,
     skip_note_keyboard,
 )
@@ -239,6 +250,15 @@ async def list_entries(message: Message, database_path: str) -> None:
     )
 
 
+@router.message(F.text == SETTINGS_TEXT)
+async def settings(message: Message, database_path: str) -> None:
+    reminder_hour = get_user_reminder_hour(database_path, message.from_user.id)
+    await message.answer(
+        texts.settings_text(reminder_hour),
+        reply_markup=reminder_time_keyboard(reminder_hour),
+    )
+
+
 @router.message(F.text == ABOUT_BOT_TEXT)
 async def about_bot(message: Message, project_github_url: str) -> None:
     await message.answer(
@@ -246,6 +266,27 @@ async def about_bot(message: Message, project_github_url: str) -> None:
         parse_mode="HTML",
         reply_markup=main_menu_keyboard(),
     )
+
+
+@router.callback_query(F.data.startswith("settings:reminder_hour:"))
+async def change_reminder_hour(callback: CallbackQuery, database_path: str) -> None:
+    reminder_hour = _parse_callback_reminder_hour(callback.data)
+
+    if reminder_hour is None or callback.message is None:
+        await callback.answer(texts.SETTINGS_OPEN_FAILED_TEXT)
+        return
+
+    set_user_reminder_hour(
+        database_path=database_path,
+        user_id=callback.from_user.id,
+        reminder_hour=reminder_hour,
+    )
+
+    await callback.message.edit_text(
+        texts.settings_text(reminder_hour),
+        reply_markup=reminder_time_keyboard(reminder_hour),
+    )
+    await callback.answer(texts.reminder_time_updated_text(reminder_hour))
 
 
 @router.callback_query(F.data == "item:list")
@@ -681,3 +722,18 @@ def _parse_callback_item_id(callback_data: str | None) -> int | None:
         return int(callback_data.rsplit(":", maxsplit=1)[1])
     except (IndexError, ValueError):
         return None
+
+
+def _parse_callback_reminder_hour(callback_data: str | None) -> int | None:
+    if callback_data is None:
+        return None
+
+    try:
+        reminder_hour = int(callback_data.rsplit(":", maxsplit=1)[1])
+    except (IndexError, ValueError):
+        return None
+
+    if reminder_hour not in REMINDER_TIME_OPTIONS.values():
+        return None
+
+    return reminder_hour

@@ -25,6 +25,10 @@ class DueReminder:
     reminder_date: str
 
 
+DEFAULT_REMINDER_HOUR = 9
+ALLOWED_REMINDER_HOURS = (9, 12, 18)
+
+
 def init_db(database_path: str) -> None:
     path = Path(database_path)
     if path.parent != Path("."):
@@ -81,6 +85,15 @@ def init_db(database_path: str) -> None:
             """
             CREATE INDEX IF NOT EXISTS idx_sent_reminders_lookup
             ON sent_reminders (item_id, offset_days, reminder_date)
+            """
+        )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS user_settings (
+                user_id INTEGER PRIMARY KEY,
+                reminder_hour INTEGER NOT NULL DEFAULT 9,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
             """
         )
 
@@ -255,27 +268,40 @@ def update_item(
 def list_due_reminders(
     database_path: str,
     reminder_date: date | None = None,
+    reminder_hour: int | None = None,
 ) -> list[DueReminder]:
     target_date = reminder_date or date.today()
     due_reminders: list[DueReminder] = []
 
     with _connect(database_path) as connection:
-        rows = connection.execute(
+        values: list[object] = [target_date.isoformat()]
+        reminder_time_filter = ""
+
+        if reminder_hour is not None:
+            reminder_time_filter = """
+              AND COALESCE(user_settings.reminder_hour, ?) = ?
             """
+            values.extend([DEFAULT_REMINDER_HOUR, reminder_hour])
+
+        rows = connection.execute(
+            f"""
             SELECT
-                id,
-                user_id,
-                title,
-                category,
-                expires_on,
-                date_precision,
-                note,
-                reminder_offsets
+                expiry_items.id,
+                expiry_items.user_id,
+                expiry_items.title,
+                expiry_items.category,
+                expiry_items.expires_on,
+                expiry_items.date_precision,
+                expiry_items.note,
+                expiry_items.reminder_offsets
             FROM expiry_items
-            WHERE expires_on >= ?
-            ORDER BY expires_on ASC, id ASC
+            LEFT JOIN user_settings
+                ON user_settings.user_id = expiry_items.user_id
+            WHERE expiry_items.expires_on >= ?
+            {reminder_time_filter}
+            ORDER BY expiry_items.expires_on ASC, expiry_items.id ASC
             """,
-            (target_date.isoformat(),),
+            values,
         ).fetchall()
 
         for row in rows:
@@ -305,6 +331,40 @@ def list_due_reminders(
                 )
 
     return due_reminders
+
+
+def get_user_reminder_hour(database_path: str, user_id: int) -> int:
+    with _connect(database_path) as connection:
+        row = connection.execute(
+            """
+            SELECT reminder_hour
+            FROM user_settings
+            WHERE user_id = ?
+            """,
+            (user_id,),
+        ).fetchone()
+
+    if row is None:
+        return DEFAULT_REMINDER_HOUR
+
+    return int(row["reminder_hour"])
+
+
+def set_user_reminder_hour(database_path: str, user_id: int, reminder_hour: int) -> None:
+    if reminder_hour not in ALLOWED_REMINDER_HOURS:
+        raise ValueError("Unsupported reminder hour.")
+
+    with sqlite3.connect(database_path) as connection:
+        connection.execute(
+            """
+            INSERT INTO user_settings (user_id, reminder_hour, updated_at)
+            VALUES (?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(user_id) DO UPDATE SET
+                reminder_hour = excluded.reminder_hour,
+                updated_at = CURRENT_TIMESTAMP
+            """,
+            (user_id, reminder_hour),
+        )
 
 
 def mark_reminder_sent(

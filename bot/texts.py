@@ -29,6 +29,7 @@ ITEM_DELETE_FAILED_TEXT = "Не получилось удалить запись
 ITEM_DELETED_TEXT = "Запись удалена."
 UNKNOWN_MESSAGE_TEXT = "Я пока понимаю /start и кнопки меню."
 ITEM_UPDATED_TEXT = "Запись обновлена."
+SETTINGS_OPEN_FAILED_TEXT = "Не получилось открыть настройки."
 EDIT_MENU_TEXT = "Что изменить?"
 EDIT_TITLE_TEXT = "Введите новое название записи."
 EDIT_CATEGORY_TEXT = "Выберите новую категорию."
@@ -67,6 +68,22 @@ ASK_REMINDERS_TEXT = (
     "Когда напомнить?\n\n"
     "Можно выбрать несколько вариантов, затем нажать «Готово»."
 )
+
+SETTINGS_TEXT = (
+    "Настройки\n\n"
+    "Здесь можно выбрать время ежедневной проверки напоминаний."
+)
+
+
+def settings_text(reminder_hour: int) -> str:
+    return (
+        f"{SETTINGS_TEXT}\n\n"
+        f"Сейчас выбрано: {format_reminder_time(reminder_hour)}"
+    )
+
+
+def reminder_time_updated_text(reminder_hour: int) -> str:
+    return f"Время напоминаний изменено: {format_reminder_time(reminder_hour)}"
 
 
 def about_bot_text(project_github_url: str) -> str:
@@ -178,6 +195,10 @@ def format_reminders(offsets: list[int] | tuple[int, ...]) -> str:
         labels_by_offset[offset]
         for offset in sorted(offsets, reverse=True)
     )
+
+
+def format_reminder_time(reminder_hour: int) -> str:
+    return f"{reminder_hour:02d}:00"
 
 
 def _format_reminder_offset(offset_days: int) -> str:
