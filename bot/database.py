@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import UTC, date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 import sqlite3
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -290,9 +290,9 @@ def list_due_reminders(
     database_path: str,
     now: datetime | None = None,
 ) -> list[DueReminder]:
-    current_time = now or datetime.now(UTC)
+    current_time = now or datetime.now(timezone.utc)
     if current_time.tzinfo is None:
-        current_time = current_time.replace(tzinfo=UTC)
+        current_time = current_time.replace(tzinfo=timezone.utc)
 
     due_reminders: list[DueReminder] = []
 
