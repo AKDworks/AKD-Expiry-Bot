@@ -1,4 +1,4 @@
-from bot.database import DueReminder, ExpiryItem
+from bot.database import DueReminder, ExpiryItem, TIMEZONE_OPTIONS
 from bot.keyboards import REMINDER_OPTIONS
 
 
@@ -71,19 +71,24 @@ ASK_REMINDERS_TEXT = (
 
 SETTINGS_TEXT = (
     "Настройки\n\n"
-    "Здесь можно выбрать время ежедневной проверки напоминаний."
+    "Здесь можно выбрать время ежедневной проверки напоминаний и часовой пояс."
 )
 
 
-def settings_text(reminder_hour: int) -> str:
+def settings_text(reminder_hour: int, timezone: str) -> str:
     return (
         f"{SETTINGS_TEXT}\n\n"
-        f"Сейчас выбрано: {format_reminder_time(reminder_hour)}"
+        f"Время: {format_reminder_time(reminder_hour)}\n"
+        f"Часовой пояс: {format_timezone(timezone)}"
     )
 
 
 def reminder_time_updated_text(reminder_hour: int) -> str:
     return f"Время напоминаний изменено: {format_reminder_time(reminder_hour)}"
+
+
+def timezone_updated_text(timezone: str) -> str:
+    return f"Часовой пояс изменён: {format_timezone(timezone)}"
 
 
 def about_bot_text(project_github_url: str) -> str:
@@ -199,6 +204,15 @@ def format_reminders(offsets: list[int] | tuple[int, ...]) -> str:
 
 def format_reminder_time(reminder_hour: int) -> str:
     return f"{reminder_hour:02d}:00"
+
+
+def format_timezone(timezone: str) -> str:
+    labels_by_timezone = {
+        value: label
+        for label, value in TIMEZONE_OPTIONS.items()
+    }
+
+    return labels_by_timezone.get(timezone, timezone)
 
 
 def _format_reminder_offset(offset_days: int) -> str:

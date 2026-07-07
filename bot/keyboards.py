@@ -6,7 +6,7 @@ from aiogram.types import (
     ReplyKeyboardRemove,
 )
 
-from bot.database import ExpiryItem
+from bot.database import ExpiryItem, TIMEZONE_OPTIONS
 
 
 CANCEL_TEXT = "Отмена"
@@ -94,16 +94,29 @@ def reminders_keyboard() -> ReplyKeyboardMarkup:
     )
 
 
-def reminder_time_keyboard(current_hour: int) -> InlineKeyboardMarkup:
+def settings_keyboard(current_hour: int, current_timezone: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text=_reminder_time_button_text(label, hour, current_hour),
-                    callback_data=f"settings:reminder_hour:{hour}",
-                )
-            ]
-            for label, hour in REMINDER_TIME_OPTIONS.items()
+            [InlineKeyboardButton(text="Время напоминаний", callback_data="settings:noop")],
+            *[
+                [
+                    InlineKeyboardButton(
+                        text=_reminder_time_button_text(label, hour, current_hour),
+                        callback_data=f"settings:reminder_hour:{hour}",
+                    )
+                ]
+                for label, hour in REMINDER_TIME_OPTIONS.items()
+            ],
+            [InlineKeyboardButton(text="Часовой пояс", callback_data="settings:noop")],
+            *[
+                [
+                    InlineKeyboardButton(
+                        text=_timezone_button_text(label, timezone, current_timezone),
+                        callback_data=f"settings:timezone:{timezone}",
+                    )
+                ]
+                for label, timezone in TIMEZONE_OPTIONS.items()
+            ],
         ]
     )
 
@@ -215,6 +228,13 @@ def confirm_delete_keyboard(item_id: int) -> InlineKeyboardMarkup:
 
 def _reminder_time_button_text(label: str, hour: int, current_hour: int) -> str:
     if hour == current_hour:
+        return f"{label} - выбрано"
+
+    return label
+
+
+def _timezone_button_text(label: str, timezone: str, current_timezone: str) -> str:
+    if timezone == current_timezone:
         return f"{label} - выбрано"
 
     return label

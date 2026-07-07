@@ -11,18 +11,14 @@ logger = logging.getLogger(__name__)
 async def send_due_reminders(
     bot: Bot,
     database_path: str,
-    reminder_hour: int | None = None,
 ) -> None:
-    due_reminders = list_due_reminders(
-        database_path=database_path,
-        reminder_hour=reminder_hour,
-    )
+    due_reminders = list_due_reminders(database_path=database_path)
 
     if not due_reminders:
-        logger.info("No due reminders found for hour=%s.", reminder_hour)
+        logger.info("No due reminders found.")
         return
 
-    logger.info("Found %s due reminders for hour=%s.", len(due_reminders), reminder_hour)
+    logger.info("Found %s due reminders.", len(due_reminders))
 
     for reminder in due_reminders:
         try:

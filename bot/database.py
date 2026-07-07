@@ -1,7 +1,8 @@
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 import sqlite3
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 _UNSET = object()
 
@@ -26,7 +27,20 @@ class DueReminder:
 
 
 DEFAULT_REMINDER_HOUR = 9
+DEFAULT_TIMEZONE = "Asia/Qyzylorda"
 ALLOWED_REMINDER_HOURS = (9, 12, 18)
+TIMEZONE_OPTIONS = {
+    "Казахстан UTC+5": "Asia/Qyzylorda",
+    "Москва UTC+3": "Europe/Moscow",
+    "Минск UTC+3": "Europe/Minsk",
+    "Баку UTC+4": "Asia/Baku",
+    "Тбилиси UTC+4": "Asia/Tbilisi",
+    "Ереван UTC+4": "Asia/Yerevan",
+    "Ташкент UTC+5": "Asia/Tashkent",
+    "Бишкек UTC+6": "Asia/Bishkek",
+    "Новосибирск UTC+7": "Asia/Novosibirsk",
+    "Владивосток UTC+10": "Asia/Vladivostok",
+}
 
 
 def init_db(database_path: str) -> None:
@@ -92,9 +106,16 @@ def init_db(database_path: str) -> None:
             CREATE TABLE IF NOT EXISTS user_settings (
                 user_id INTEGER PRIMARY KEY,
                 reminder_hour INTEGER NOT NULL DEFAULT 9,
+                timezone TEXT NOT NULL DEFAULT 'Asia/Qyzylorda',
                 updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             )
             """
+        )
+        _ensure_column(
+            connection,
+            table_name="user_settings",
+            column_name="timezone",
+            definition="timezone TEXT NOT NULL DEFAULT 'Asia/Qyzylorda'",
         )
 
 
@@ -267,24 +288,17 @@ def update_item(
 
 def list_due_reminders(
     database_path: str,
-    reminder_date: date | None = None,
-    reminder_hour: int | None = None,
+    now: datetime | None = None,
 ) -> list[DueReminder]:
-    target_date = reminder_date or date.today()
+    current_time = now or datetime.now(UTC)
+    if current_time.tzinfo is None:
+        current_time = current_time.replace(tzinfo=UTC)
+
     due_reminders: list[DueReminder] = []
 
     with _connect(database_path) as connection:
-        values: list[object] = [target_date.isoformat()]
-        reminder_time_filter = ""
-
-        if reminder_hour is not None:
-            reminder_time_filter = """
-              AND COALESCE(user_settings.reminder_hour, ?) = ?
-            """
-            values.extend([DEFAULT_REMINDER_HOUR, reminder_hour])
-
         rows = connection.execute(
-            f"""
+            """
             SELECT
                 expiry_items.id,
                 expiry_items.user_id,
@@ -293,20 +307,28 @@ def list_due_reminders(
                 expiry_items.expires_on,
                 expiry_items.date_precision,
                 expiry_items.note,
-                expiry_items.reminder_offsets
+                expiry_items.reminder_offsets,
+                COALESCE(user_settings.reminder_hour, ?) AS reminder_hour,
+                COALESCE(user_settings.timezone, ?) AS timezone
             FROM expiry_items
             LEFT JOIN user_settings
                 ON user_settings.user_id = expiry_items.user_id
-            WHERE expiry_items.expires_on >= ?
-            {reminder_time_filter}
             ORDER BY expiry_items.expires_on ASC, expiry_items.id ASC
             """,
-            values,
+            (DEFAULT_REMINDER_HOUR, DEFAULT_TIMEZONE),
         ).fetchall()
 
         for row in rows:
             item = _row_to_item(row)
             expires_on = date.fromisoformat(item.expires_on)
+            user_now = _localize_time(current_time, row["timezone"])
+            target_date = user_now.date()
+
+            if expires_on < target_date:
+                continue
+
+            if int(row["reminder_hour"]) != user_now.hour:
+                continue
 
             for offset_days in item.reminder_offsets:
                 expected_reminder_date = expires_on - timedelta(days=offset_days)
@@ -333,11 +355,11 @@ def list_due_reminders(
     return due_reminders
 
 
-def get_user_reminder_hour(database_path: str, user_id: int) -> int:
+def get_user_settings(database_path: str, user_id: int) -> tuple[int, str]:
     with _connect(database_path) as connection:
         row = connection.execute(
             """
-            SELECT reminder_hour
+            SELECT reminder_hour, timezone
             FROM user_settings
             WHERE user_id = ?
             """,
@@ -345,9 +367,14 @@ def get_user_reminder_hour(database_path: str, user_id: int) -> int:
         ).fetchone()
 
     if row is None:
-        return DEFAULT_REMINDER_HOUR
+        return DEFAULT_REMINDER_HOUR, DEFAULT_TIMEZONE
 
-    return int(row["reminder_hour"])
+    return int(row["reminder_hour"]), row["timezone"]
+
+
+def get_user_reminder_hour(database_path: str, user_id: int) -> int:
+    reminder_hour, _timezone = get_user_settings(database_path, user_id)
+    return reminder_hour
 
 
 def set_user_reminder_hour(database_path: str, user_id: int, reminder_hour: int) -> None:
@@ -364,6 +391,23 @@ def set_user_reminder_hour(database_path: str, user_id: int, reminder_hour: int)
                 updated_at = CURRENT_TIMESTAMP
             """,
             (user_id, reminder_hour),
+        )
+
+
+def set_user_timezone(database_path: str, user_id: int, timezone: str) -> None:
+    if timezone not in TIMEZONE_OPTIONS.values():
+        raise ValueError("Unsupported timezone.")
+
+    with sqlite3.connect(database_path) as connection:
+        connection.execute(
+            """
+            INSERT INTO user_settings (user_id, timezone, updated_at)
+            VALUES (?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(user_id) DO UPDATE SET
+                timezone = excluded.timezone,
+                updated_at = CURRENT_TIMESTAMP
+            """,
+            (user_id, timezone),
         )
 
 
@@ -438,6 +482,15 @@ def _parse_reminder_offsets(value: str) -> tuple[int, ...]:
         return tuple()
 
     return tuple(int(offset) for offset in value.split(","))
+
+
+def _localize_time(current_time: datetime, timezone: str) -> datetime:
+    try:
+        zone = ZoneInfo(timezone)
+    except ZoneInfoNotFoundError:
+        zone = ZoneInfo(DEFAULT_TIMEZONE)
+
+    return current_time.astimezone(zone)
 
 
 def _row_to_item(row: sqlite3.Row) -> ExpiryItem:
