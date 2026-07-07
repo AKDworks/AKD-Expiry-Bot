@@ -20,6 +20,7 @@ from bot.database import (
 from bot.keyboards import (
     ADD_ITEM_TEXT,
     ABOUT_BOT_TEXT,
+    BACK_TEXT,
     CANCEL_TEXT,
     CATEGORIES,
     DONE_TEXT,
@@ -280,6 +281,15 @@ async def timezone_settings(message: Message, database_path: str) -> None:
     await message.answer(
         texts.TIMEZONE_SETTINGS_TEXT,
         reply_markup=timezone_settings_keyboard(timezone),
+    )
+
+
+@router.message(F.text == BACK_TEXT)
+async def back_to_settings(message: Message, database_path: str) -> None:
+    reminder_hour, timezone = get_user_settings(database_path, message.from_user.id)
+    await message.answer(
+        texts.settings_text(reminder_hour, timezone),
+        reply_markup=settings_menu_keyboard(),
     )
 
 

@@ -18,6 +18,7 @@ TIMEZONE_SETTINGS_TEXT = "Часовой пояс"
 ABOUT_BOT_TEXT = "О боте"
 DONE_TEXT = "Готово"
 SKIP_TEXT = "Пропустить"
+BACK_TEXT = "Назад"
 
 CATEGORIES = (
     "Документы",
@@ -110,11 +111,11 @@ def settings_menu_keyboard() -> ReplyKeyboardMarkup:
 def reminder_time_settings_keyboard(current_hour: int) -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text=REMINDER_TIME_SETTINGS_TEXT)],
             *[
                 [KeyboardButton(text=_reminder_time_button_text(label, hour, current_hour))]
                 for label, hour in REMINDER_TIME_OPTIONS.items()
             ],
+            [KeyboardButton(text=BACK_TEXT)],
         ],
         resize_keyboard=True,
         input_field_placeholder="Выберите время",
@@ -124,11 +125,11 @@ def reminder_time_settings_keyboard(current_hour: int) -> ReplyKeyboardMarkup:
 def timezone_settings_keyboard(current_timezone: str) -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text=TIMEZONE_SETTINGS_TEXT)],
             *[
                 [KeyboardButton(text=_timezone_button_text(label, timezone, current_timezone))]
                 for label, timezone in TIMEZONE_OPTIONS.items()
             ],
+            [KeyboardButton(text=BACK_TEXT)],
         ],
         resize_keyboard=True,
         input_field_placeholder="Выберите часовой пояс",
