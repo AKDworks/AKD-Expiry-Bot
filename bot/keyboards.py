@@ -13,6 +13,8 @@ CANCEL_TEXT = "Отмена"
 ADD_ITEM_TEXT = "Добавить запись"
 MY_ITEMS_TEXT = "Мои записи"
 SETTINGS_TEXT = "Настройки"
+REMINDER_TIME_SETTINGS_TEXT = "Время напоминаний"
+TIMEZONE_SETTINGS_TEXT = "Часовой пояс"
 ABOUT_BOT_TEXT = "О боте"
 DONE_TEXT = "Готово"
 SKIP_TEXT = "Пропустить"
@@ -94,30 +96,42 @@ def reminders_keyboard() -> ReplyKeyboardMarkup:
     )
 
 
-def settings_keyboard(current_hour: int, current_timezone: str) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="Время напоминаний", callback_data="settings:noop")],
+def settings_menu_keyboard() -> ReplyKeyboardMarkup:
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text=REMINDER_TIME_SETTINGS_TEXT)],
+            [KeyboardButton(text=TIMEZONE_SETTINGS_TEXT)],
+        ],
+        resize_keyboard=True,
+        input_field_placeholder="Выберите настройку",
+    )
+
+
+def reminder_time_settings_keyboard(current_hour: int) -> ReplyKeyboardMarkup:
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text=REMINDER_TIME_SETTINGS_TEXT)],
             *[
-                [
-                    InlineKeyboardButton(
-                        text=_reminder_time_button_text(label, hour, current_hour),
-                        callback_data=f"settings:reminder_hour:{hour}",
-                    )
-                ]
+                [KeyboardButton(text=_reminder_time_button_text(label, hour, current_hour))]
                 for label, hour in REMINDER_TIME_OPTIONS.items()
             ],
-            [InlineKeyboardButton(text="Часовой пояс", callback_data="settings:noop")],
+        ],
+        resize_keyboard=True,
+        input_field_placeholder="Выберите время",
+    )
+
+
+def timezone_settings_keyboard(current_timezone: str) -> ReplyKeyboardMarkup:
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text=TIMEZONE_SETTINGS_TEXT)],
             *[
-                [
-                    InlineKeyboardButton(
-                        text=_timezone_button_text(label, timezone, current_timezone),
-                        callback_data=f"settings:timezone:{timezone}",
-                    )
-                ]
+                [KeyboardButton(text=_timezone_button_text(label, timezone, current_timezone))]
                 for label, timezone in TIMEZONE_OPTIONS.items()
             ],
-        ]
+        ],
+        resize_keyboard=True,
+        input_field_placeholder="Выберите часовой пояс",
     )
 
 

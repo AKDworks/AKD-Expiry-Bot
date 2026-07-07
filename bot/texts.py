@@ -73,6 +73,8 @@ SETTINGS_TEXT = (
     "Настройки\n\n"
     "Здесь можно выбрать время ежедневной проверки напоминаний и часовой пояс."
 )
+REMINDER_TIME_SETTINGS_TEXT = "Выберите время напоминаний."
+TIMEZONE_SETTINGS_TEXT = "Выберите часовой пояс."
 
 
 def settings_text(reminder_hour: int, timezone: str) -> str:

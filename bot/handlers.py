@@ -25,10 +25,12 @@ from bot.keyboards import (
     DONE_TEXT,
     MY_ITEMS_TEXT,
     REMINDER_OPTIONS,
+    REMINDER_TIME_SETTINGS_TEXT,
     REMINDER_TIME_OPTIONS,
     SETTINGS_TEXT,
     SKIP_TEXT,
     TIMEZONE_OPTIONS,
+    TIMEZONE_SETTINGS_TEXT,
     cancel_keyboard,
     category_keyboard,
     confirm_delete_keyboard,
@@ -36,9 +38,11 @@ from bot.keyboards import (
     item_actions_keyboard,
     items_keyboard,
     main_menu_keyboard,
+    reminder_time_settings_keyboard,
     reminders_keyboard,
-    settings_keyboard,
+    settings_menu_keyboard,
     skip_note_keyboard,
+    timezone_settings_keyboard,
 )
 from bot.texts import START_TEXT
 from bot import texts
@@ -257,7 +261,25 @@ async def settings(message: Message, database_path: str) -> None:
     reminder_hour, timezone = get_user_settings(database_path, message.from_user.id)
     await message.answer(
         texts.settings_text(reminder_hour, timezone),
-        reply_markup=settings_keyboard(reminder_hour, timezone),
+        reply_markup=settings_menu_keyboard(),
+    )
+
+
+@router.message(F.text == REMINDER_TIME_SETTINGS_TEXT)
+async def reminder_time_settings(message: Message, database_path: str) -> None:
+    reminder_hour, _timezone = get_user_settings(database_path, message.from_user.id)
+    await message.answer(
+        texts.REMINDER_TIME_SETTINGS_TEXT,
+        reply_markup=reminder_time_settings_keyboard(reminder_hour),
+    )
+
+
+@router.message(F.text == TIMEZONE_SETTINGS_TEXT)
+async def timezone_settings(message: Message, database_path: str) -> None:
+    _reminder_hour, timezone = get_user_settings(database_path, message.from_user.id)
+    await message.answer(
+        texts.TIMEZONE_SETTINGS_TEXT,
+        reply_markup=timezone_settings_keyboard(timezone),
     )
 
 
@@ -270,53 +292,50 @@ async def about_bot(message: Message, project_github_url: str) -> None:
     )
 
 
-@router.callback_query(F.data.startswith("settings:reminder_hour:"))
-async def change_reminder_hour(callback: CallbackQuery, database_path: str) -> None:
-    reminder_hour = _parse_callback_reminder_hour(callback.data)
+@router.message(
+    F.text.in_(set(REMINDER_TIME_OPTIONS.keys()))
+    | F.text.in_({f"{label} - выбрано" for label in REMINDER_TIME_OPTIONS})
+)
+async def change_reminder_hour(message: Message, database_path: str) -> None:
+    reminder_hour = _parse_reminder_hour_text(_clean_text(message.text))
 
-    if reminder_hour is None or callback.message is None:
-        await callback.answer(texts.SETTINGS_OPEN_FAILED_TEXT)
+    if reminder_hour is None:
+        await message.answer(texts.SETTINGS_OPEN_FAILED_TEXT)
         return
 
     set_user_reminder_hour(
         database_path=database_path,
-        user_id=callback.from_user.id,
+        user_id=message.from_user.id,
         reminder_hour=reminder_hour,
     )
-    _current_hour, timezone = get_user_settings(database_path, callback.from_user.id)
 
-    await callback.message.edit_text(
-        texts.settings_text(reminder_hour, timezone),
-        reply_markup=settings_keyboard(reminder_hour, timezone),
+    await message.answer(
+        texts.reminder_time_updated_text(reminder_hour),
+        reply_markup=reminder_time_settings_keyboard(reminder_hour),
     )
-    await callback.answer(texts.reminder_time_updated_text(reminder_hour))
 
 
-@router.callback_query(F.data.startswith("settings:timezone:"))
-async def change_timezone(callback: CallbackQuery, database_path: str) -> None:
-    timezone = _parse_callback_timezone(callback.data)
+@router.message(
+    F.text.in_(set(TIMEZONE_OPTIONS.keys()))
+    | F.text.in_({f"{label} - выбрано" for label in TIMEZONE_OPTIONS})
+)
+async def change_timezone(message: Message, database_path: str) -> None:
+    timezone = _parse_timezone_text(_clean_text(message.text))
 
-    if timezone is None or callback.message is None:
-        await callback.answer(texts.SETTINGS_OPEN_FAILED_TEXT)
+    if timezone is None:
+        await message.answer(texts.SETTINGS_OPEN_FAILED_TEXT)
         return
 
     set_user_timezone(
         database_path=database_path,
-        user_id=callback.from_user.id,
+        user_id=message.from_user.id,
         timezone=timezone,
     )
-    reminder_hour, timezone = get_user_settings(database_path, callback.from_user.id)
 
-    await callback.message.edit_text(
-        texts.settings_text(reminder_hour, timezone),
-        reply_markup=settings_keyboard(reminder_hour, timezone),
+    await message.answer(
+        texts.timezone_updated_text(timezone),
+        reply_markup=timezone_settings_keyboard(timezone),
     )
-    await callback.answer(texts.timezone_updated_text(timezone))
-
-
-@router.callback_query(F.data == "settings:noop")
-async def settings_noop(callback: CallbackQuery) -> None:
-    await callback.answer()
 
 
 @router.callback_query(F.data == "item:list")
@@ -754,31 +773,11 @@ def _parse_callback_item_id(callback_data: str | None) -> int | None:
         return None
 
 
-def _parse_callback_reminder_hour(callback_data: str | None) -> int | None:
-    if callback_data is None:
-        return None
-
-    try:
-        reminder_hour = int(callback_data.rsplit(":", maxsplit=1)[1])
-    except (IndexError, ValueError):
-        return None
-
-    if reminder_hour not in REMINDER_TIME_OPTIONS.values():
-        return None
-
-    return reminder_hour
+def _parse_reminder_hour_text(text: str) -> int | None:
+    label = text.removesuffix(" - выбрано")
+    return REMINDER_TIME_OPTIONS.get(label)
 
 
-def _parse_callback_timezone(callback_data: str | None) -> str | None:
-    if callback_data is None:
-        return None
-
-    try:
-        timezone = callback_data.split(":", maxsplit=2)[2]
-    except IndexError:
-        return None
-
-    if timezone not in TIMEZONE_OPTIONS.values():
-        return None
-
-    return timezone
+def _parse_timezone_text(text: str) -> str | None:
+    label = text.removesuffix(" - выбрано")
+    return TIMEZONE_OPTIONS.get(label)
