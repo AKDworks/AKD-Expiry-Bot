@@ -67,6 +67,12 @@ class EditItemStates(StatesGroup):
     reminders = State()
 
 
+class SettingsStates(StatesGroup):
+    menu = State()
+    reminder_time = State()
+    timezone = State()
+
+
 @router.message(CommandStart())
 async def start(message: Message, state: FSMContext) -> None:
     await state.clear()
@@ -258,8 +264,10 @@ async def list_entries(message: Message, database_path: str) -> None:
 
 
 @router.message(F.text == SETTINGS_TEXT)
-async def settings(message: Message, database_path: str) -> None:
+async def settings(message: Message, state: FSMContext, database_path: str) -> None:
     reminder_hour, timezone = get_user_settings(database_path, message.from_user.id)
+    await state.clear()
+    await state.set_state(SettingsStates.menu)
     await message.answer(
         texts.settings_text(reminder_hour, timezone),
         reply_markup=settings_menu_keyboard(),
@@ -267,8 +275,13 @@ async def settings(message: Message, database_path: str) -> None:
 
 
 @router.message(F.text == REMINDER_TIME_SETTINGS_TEXT)
-async def reminder_time_settings(message: Message, database_path: str) -> None:
+async def reminder_time_settings(
+    message: Message,
+    state: FSMContext,
+    database_path: str,
+) -> None:
     reminder_hour, _timezone = get_user_settings(database_path, message.from_user.id)
+    await state.set_state(SettingsStates.reminder_time)
     await message.answer(
         texts.REMINDER_TIME_SETTINGS_TEXT,
         reply_markup=reminder_time_settings_keyboard(reminder_hour),
@@ -276,8 +289,13 @@ async def reminder_time_settings(message: Message, database_path: str) -> None:
 
 
 @router.message(F.text == TIMEZONE_SETTINGS_TEXT)
-async def timezone_settings(message: Message, database_path: str) -> None:
+async def timezone_settings(
+    message: Message,
+    state: FSMContext,
+    database_path: str,
+) -> None:
     _reminder_hour, timezone = get_user_settings(database_path, message.from_user.id)
+    await state.set_state(SettingsStates.timezone)
     await message.answer(
         texts.TIMEZONE_SETTINGS_TEXT,
         reply_markup=timezone_settings_keyboard(timezone),
@@ -285,8 +303,23 @@ async def timezone_settings(message: Message, database_path: str) -> None:
 
 
 @router.message(F.text == BACK_TEXT)
-async def back_to_settings(message: Message, database_path: str) -> None:
+async def back_from_settings(
+    message: Message,
+    state: FSMContext,
+    database_path: str,
+) -> None:
+    current_state = await state.get_state()
+
+    if current_state == SettingsStates.menu.state:
+        await state.clear()
+        await message.answer(
+            texts.MAIN_MENU_TEXT,
+            reply_markup=main_menu_keyboard(),
+        )
+        return
+
     reminder_hour, timezone = get_user_settings(database_path, message.from_user.id)
+    await state.set_state(SettingsStates.menu)
     await message.answer(
         texts.settings_text(reminder_hour, timezone),
         reply_markup=settings_menu_keyboard(),

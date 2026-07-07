@@ -11,6 +11,7 @@ START_TEXT = (
 )
 
 CANCELLED_TEXT = "Действие отменено."
+MAIN_MENU_TEXT = "Главное меню."
 TITLE_REQUIRED_TEXT = "Введите название текстом."
 TITLE_TOO_LONG_TEXT = "Слишком длинно. Лучше до 80 символов."
 CATEGORY_REQUIRED_TEXT = "Выберите категорию кнопкой."

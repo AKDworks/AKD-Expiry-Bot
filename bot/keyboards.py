@@ -102,6 +102,7 @@ def settings_menu_keyboard() -> ReplyKeyboardMarkup:
         keyboard=[
             [KeyboardButton(text=REMINDER_TIME_SETTINGS_TEXT)],
             [KeyboardButton(text=TIMEZONE_SETTINGS_TEXT)],
+            [KeyboardButton(text=BACK_TEXT)],
         ],
         resize_keyboard=True,
         input_field_placeholder="Выберите настройку",
